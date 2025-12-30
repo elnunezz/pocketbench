@@ -1,0 +1,26 @@
+{
+  "name": "PocketBench",
+  "short_name": "PocketBench",
+  "description": "Tu bancada actual y tu historial",
+  "start_url": "https://elnunezz.github.io/pocketbench/",
+  "scope": "https://elnunezz.github.io/pocketbench/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#FFE600",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "https://elnunezz.github.io/pocketbench/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "https://elnunezz.github.io/pocketbench/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["productivity", "business"]
+}
