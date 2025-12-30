@@ -98,31 +98,33 @@
       100% { transform: rotate(360deg); }
     }
 
-    .error {
+    .panel {
       display: none;
-      background: rgba(254, 242, 242, 0.95);
-      border: 2px solid #fecaca;
+      margin-top: 14px;
       border-radius: 12px;
       padding: 14px;
-      margin-top: 14px;
-      color: #b91c1c;
       font-size: 14px;
       text-align: left;
     }
-    .error.show { display: block; }
+    .panel.show { display: block; }
 
-    .install-hint {
-      display: none;
+    .panel.info {
       background: rgba(219, 234, 254, 0.95);
       border: 2px solid #2196F3;
-      border-radius: 12px;
-      padding: 14px;
-      margin-top: 14px;
       color: #111827;
-      font-size: 14px;
-      text-align: left;
     }
-    .install-hint.show { display: block; }
+
+    .panel.warn {
+      background: rgba(255, 237, 213, 0.95);
+      border: 2px solid #fb923c;
+      color: #7c2d12;
+    }
+
+    .panel.error {
+      background: rgba(254, 242, 242, 0.95);
+      border: 2px solid #fecaca;
+      color: #b91c1c;
+    }
 
     .btn {
       background: #667eea;
@@ -145,6 +147,7 @@
 
     .btn-secondary {
       background: rgba(148, 163, 184, 0.18);
+      color: #e5e7eb;
     }
 
     .version {
@@ -162,7 +165,6 @@
       border: none;
       background: #fff;
     }
-
     #app-frame.loaded { display: block; }
   </style>
 </head>
@@ -181,34 +183,83 @@
     </div>
 
     <button class="btn" id="btn-open">Abrir PocketBench</button>
+    <button class="btn btn-secondary" id="btn-copy" style="display:none;">Copiar link</button>
 
-    <div class="install-hint" id="install-hint">
+    <!-- iOS / Safari instalación -->
+    <div class="panel info" id="panel-ios-install">
       <strong>📱 iPhone: instalar</strong>
       <p style="margin-top:6px;">
-        Debes abrir esta página en <strong>Safari</strong> y luego:
-        <br/>Compartir → <strong>Agregar a pantalla de inicio</strong>.
+        Para instalar: abre esta página en <strong>Safari</strong> → Compartir →
+        <strong>Agregar a pantalla de inicio</strong>.
       </p>
     </div>
 
-    <div class="error" id="error">
-      <strong>⚠️ Error</strong>
+    <!-- iOS + Chrome aviso -->
+    <div class="panel warn" id="panel-ios-chrome">
+      <strong>⚠️ Estás usando Chrome en iPhone</strong>
+      <p style="margin-top:6px;">
+        En iPhone, la instalación y el acceso funcionan mejor desde <strong>Safari</strong>.
+        Toca <strong>Copiar link</strong>, pégalo en Safari y luego instala desde allí.
+      </p>
+    </div>
+
+    <!-- Error general -->
+    <div class="panel error" id="panel-error">
+      <strong>❌ Error</strong>
       <p id="error-message" style="margin-top:6px;"></p>
       <button class="btn btn-secondary" onclick="location.reload()">Reintentar</button>
     </div>
 
-    <div class="version">v1.0.2</div>
+    <div class="version">v1.0.3</div>
   </div>
 
   <iframe id="app-frame" src="" title="PocketBench App"></iframe>
 
   <script>
     const APP_URL = 'https://script.google.com/a/macros/mercadolibre.com/s/AKfycbzGPjHEJBYHrw70nYiXUJKiaT84HXvoZHmpFRsMzsQvOiEK35ZZ0Nxq-YWLDu5QhkNk/exec';
+    const SHELL_URL = 'https://elnunezz.github.io/pocketbench/';
 
     function isIOS() {
       return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
     }
 
-    // SW (solo cachea el shell)
+    function isChromeOniOS() {
+      // Chrome iOS
+      return /CriOS/.test(navigator.userAgent);
+    }
+
+    function isSafariOniOS() {
+      // Safari iOS: tiene "Safari" pero NO CriOS/FxiOS/EdgiOS
+      const ua = navigator.userAgent;
+      const isSafari = /Safari/.test(ua) && !/CriOS|FxiOS|EdgiOS/.test(ua);
+      return isSafari && isIOS();
+    }
+
+    async function copyToClipboard(text) {
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(text);
+          return true;
+        }
+      } catch (e) {}
+      try {
+        // fallback
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.top = '-1000px';
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        const ok = document.execCommand('copy');
+        document.body.removeChild(ta);
+        return ok;
+      } catch (e) {
+        return false;
+      }
+    }
+
+    // SW del shell (GitHub Pages)
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('sw.js')
@@ -217,36 +268,60 @@
       });
     }
 
-    // Botón abrir (CLICK real, iOS permite navegación)
-    const btnOpen = document.getElementById('btn-open');
-    btnOpen.addEventListener('click', () => {
-      // En iOS es más estable abrir en la misma vista
-      window.location.href = APP_URL;
-    });
-
     window.addEventListener('load', () => {
       const loadingText = document.getElementById('loading-text');
-      const installHint = document.getElementById('install-hint');
 
+      const panelIOSInstall = document.getElementById('panel-ios-install');
+      const panelIOSChrome = document.getElementById('panel-ios-chrome');
+      const panelError = document.getElementById('panel-error');
+      const errorMessage = document.getElementById('error-message');
+
+      const btnOpen = document.getElementById('btn-open');
+      const btnCopy = document.getElementById('btn-copy');
+
+      // CLICK: abre Apps Script (evita problemas iOS con iframes/autoredirects)
+      btnOpen.addEventListener('click', () => {
+        window.location.href = APP_URL;
+      });
+
+      // Config inicial
       if (isIOS()) {
-        loadingText.textContent = 'En iPhone presiona “Abrir PocketBench”.';
-        installHint.classList.add('show');
-        return; // NO iframe en iOS
+        loadingText.textContent = 'En iPhone, abre PocketBench con el botón.';
+        panelIOSInstall.classList.add('show');
+
+        // Si es Chrome iOS, mostramos aviso + botón copiar link
+        if (isChromeOniOS()) {
+          panelIOSChrome.classList.add('show');
+          btnCopy.style.display = 'block';
+
+          btnCopy.addEventListener('click', async () => {
+            const ok = await copyToClipboard(SHELL_URL);
+            if (ok) {
+              btnCopy.textContent = 'Link copiado ✓';
+              setTimeout(() => (btnCopy.textContent = 'Copiar link'), 1800);
+            } else {
+              panelError.classList.add('show');
+              errorMessage.textContent = 'No se pudo copiar el link. Cópialo manualmente: ' + SHELL_URL;
+            }
+          });
+        }
+
+        // NO iframe en iOS
+        return;
       }
 
-      // Android/otros: iframe
+      // Android/otros: iframe como en tu PWA exitosa
       loadingText.textContent = 'Cargando aplicación...';
+
       const iframe = document.getElementById('app-frame');
       const splash = document.getElementById('splash');
       const loading = document.getElementById('loading');
-      const errorDiv = document.getElementById('error');
-      const errorMessage = document.getElementById('error-message');
 
       iframe.src = APP_URL;
 
       const timeout = setTimeout(() => {
         loading.style.display = 'none';
-        errorDiv.classList.add('show');
+        panelError.classList.add('show');
         errorMessage.textContent =
           'PocketBench está tardando mucho en cargar. Verifica tu conexión o tu acceso.';
       }, 12000);
@@ -262,18 +337,10 @@
       iframe.addEventListener('error', () => {
         clearTimeout(timeout);
         loading.style.display = 'none';
-        errorDiv.classList.add('show');
+        panelError.classList.add('show');
         errorMessage.textContent =
           'No se pudo cargar PocketBench. Verifica tu acceso a la organización.';
       });
-    });
-
-    // Android install prompt
-    let deferredPrompt;
-    window.addEventListener('beforeinstallprompt', (e) => {
-      e.preventDefault();
-      deferredPrompt = e;
-      // Puedes agregar aquí un prompt UI similar al que ya tenías, si quieres.
     });
   </script>
 </body>
