@@ -1,4 +1,4 @@
-const CACHE_NAME = 'pocketbench-v1.0.0';
+const CACHE_NAME = 'pocketbench-v1.0.2';
 const BASE_URL = 'https://elnunezz.github.io/pocketbench/';
 
 const urlsToCache = [
@@ -9,8 +9,9 @@ const urlsToCache = [
   BASE_URL + 'icon-512.png'
 ];
 
+// Instalar
 self.addEventListener('install', (event) => {
-  console.log('Service Worker: Instalando pocketbench v1.0.0...');
+  console.log('Service Worker: Instalando pocketbench v1.0.2...');
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) => cache.addAll(urlsToCache))
@@ -19,13 +20,17 @@ self.addEventListener('install', (event) => {
   self.skipWaiting();
 });
 
+// Activar
 self.addEventListener('activate', (event) => {
-  console.log('Service Worker: Activando pocketbench v1.0.0...');
+  console.log('Service Worker: Activando pocketbench v1.0.2...');
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
-          if (cacheName !== CACHE_NAME) return caches.delete(cacheName);
+          if (cacheName !== CACHE_NAME) {
+            console.log('Service Worker: Eliminando cache antiguo:', cacheName);
+            return caches.delete(cacheName);
+          }
         })
       );
     })
@@ -33,6 +38,7 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
+// Fetch
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
 
@@ -43,6 +49,7 @@ self.addEventListener('fetch', (event) => {
     return event.respondWith(fetch(event.request));
   }
 
+  // Para el shell: network-first con fallback a cache
   event.respondWith(
     fetch(event.request)
       .then((response) => {
@@ -53,8 +60,8 @@ self.addEventListener('fetch', (event) => {
         return response;
       })
       .catch(() => {
-        return caches.match(event.request).then((response) => {
-          return response || caches.match(BASE_URL + 'index.html');
+        return caches.match(event.request).then((cached) => {
+          return cached || caches.match(BASE_URL + 'index.html');
         });
       })
   );
