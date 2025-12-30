@@ -29,7 +29,7 @@
       background: radial-gradient(circle at top left, #6366f1 0, #4f46e5 35%, #7c3aed 60%, #1e293b 100%);
       min-height: 100vh;
       color: #f9fafb;
-      overflow: hidden; /* el shell no scrollea; scrollea el iframe */
+      overflow: hidden;
     }
 
     .container {
@@ -152,18 +152,8 @@
       font-size: 12px;
     }
 
-    /* Iframe full-screen */
-    #app-frame {
-      display: none;
-      position: fixed;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      border: none;
-      background: #fff;
-    }
-
-    #app-frame.loaded { display: block; }
+    /* iframe existe pero NO se usa en iOS (y si quieres, tampoco en ningún lado) */
+    #app-frame { display: none; }
   </style>
 </head>
 <body>
@@ -177,31 +167,37 @@
 
     <div class="loading" id="loading">
       <div class="spinner"></div>
-      <p>Cargando aplicación...</p>
+      <p id="loading-text">Abriendo aplicación...</p>
     </div>
 
     <div class="error" id="error">
-      <strong>⚠️ Error de conexión</strong>
+      <strong>⚠️ Error</strong>
       <p id="error-message" style="margin-top:6px;"></p>
       <button class="btn" onclick="location.reload()">Reintentar</button>
     </div>
 
+    <!-- iOS no dispara beforeinstallprompt: mostramos ayuda -->
     <div class="install-prompt" id="install-prompt">
-      <strong>📱 Instalar aplicación</strong>
-      <p>Instala PocketBench en tu dispositivo para acceso rápido.</p>
-      <button class="btn" id="install-button">Instalar</button>
+      <strong>📱 Instalar en iPhone</strong>
+      <p>
+        En iPhone debes usar <strong>Safari</strong> → botón <strong>Compartir</strong> →
+        <strong>Agregar a pantalla de inicio</strong>.
+      </p>
     </div>
 
-    <div class="version">v1.0.0</div>
+    <div class="version">v1.0.1</div>
   </div>
 
   <iframe id="app-frame" src="" title="PocketBench App"></iframe>
 
   <script>
-    // URL de tu Apps Script (/exec) PocketBench
     const APP_URL = 'https://script.google.com/a/macros/mercadolibre.com/s/AKfycbzGPjHEJBYHrw70nYiXUJKiaT84HXvoZHmpFRsMzsQvOiEK35ZZ0Nxq-YWLDu5QhkNk/exec';
 
-    // Registrar Service Worker (mismo dominio GitHub Pages)
+    function isIOS() {
+      return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    }
+
+    // Registrar Service Worker (solo afecta al shell en GitHub Pages)
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('sw.js')
@@ -210,41 +206,31 @@
       });
     }
 
-    // Cargar app en iframe
     window.addEventListener('load', () => {
-      const iframe = document.getElementById('app-frame');
-      const splash = document.getElementById('splash');
       const loading = document.getElementById('loading');
       const errorDiv = document.getElementById('error');
       const errorMessage = document.getElementById('error-message');
+      const installPrompt = document.getElementById('install-prompt');
 
-      iframe.src = APP_URL;
+      // En iOS: mostrar instrucciones de instalación
+      if (isIOS()) {
+        installPrompt.classList.add('show');
+      }
 
-      const timeout = setTimeout(() => {
-        loading.style.display = 'none';
-        errorDiv.classList.add('show');
-        errorMessage.textContent =
-          'PocketBench está tardando mucho en cargar. Verifica tu conexión o tu acceso a la organización.';
-      }, 12000);
-
-      iframe.addEventListener('load', () => {
-        clearTimeout(timeout);
+      // REDIRECT (sin iframe): esto evita el blanco en iOS
+      // y además permite completar OAuth/SSO de Google correctamente.
+      try {
         setTimeout(() => {
-          splash.style.display = 'none';
-          iframe.classList.add('loaded');
-        }, 350);
-      });
-
-      iframe.addEventListener('error', () => {
-        clearTimeout(timeout);
+          window.location.href = APP_URL;
+        }, 400);
+      } catch (e) {
         loading.style.display = 'none';
         errorDiv.classList.add('show');
-        errorMessage.textContent =
-          'No se pudo cargar PocketBench. Verifica que tengas acceso a la organización.';
-      });
+        errorMessage.textContent = 'No se pudo abrir la aplicación. Intenta nuevamente.';
+      }
     });
 
-    // PWA Install Prompt
+    // Install prompt para Android/Chrome (iOS no lo soporta)
     let deferredPrompt;
 
     window.addEventListener('beforeinstallprompt', (e) => {
@@ -252,24 +238,32 @@
       deferredPrompt = e;
 
       const installPrompt = document.getElementById('install-prompt');
-      const installButton = document.getElementById('install-button');
+      const loadingText = document.getElementById('loading-text');
 
-      setTimeout(() => {
-        installPrompt.classList.add('show');
-      }, 2500);
+      // En Android, el redirect te sacaría del shell inmediatamente.
+      // Si quieres mantener el flujo Android con iframe, no uses esta versión.
+      // Si igual quieres permitir “instalar” el shell, avisamos:
+      if (loadingText) {
+        loadingText.textContent = 'Puedes instalar PocketBench desde el menú del navegador.';
+      }
 
-      installButton.addEventListener('click', async () => {
-        installPrompt.classList.remove('show');
-        deferredPrompt.prompt();
-        const { outcome } = await deferredPrompt.userChoice;
-        console.log(`Install prompt: ${outcome}`);
-        deferredPrompt = null;
-      });
-    });
+      // Mostramos bloque de instalación y lo adaptamos (Android)
+      installPrompt.classList.add('show');
+      installPrompt.innerHTML = `
+        <strong>📱 Instalar aplicación</strong>
+        <p>Instala PocketBench en tu dispositivo para acceso rápido.</p>
+        <button class="btn" id="install-button">Instalar</button>
+      `;
 
-    window.addEventListener('appinstalled', () => {
-      console.log('PWA instalada exitosamente');
-      deferredPrompt = null;
+      const btn = document.getElementById('install-button');
+      if (btn) {
+        btn.addEventListener('click', async () => {
+          deferredPrompt.prompt();
+          const { outcome } = await deferredPrompt.userChoice;
+          console.log(\`Install prompt: \${outcome}\`);
+          deferredPrompt = null;
+        });
+      }
     });
   </script>
 </body>
