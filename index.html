@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <meta name="theme-color" content="#FFE600" />
+  <meta name="description" content="PocketBench - Tu bancada actual y tu historial" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="PocketBench" />
+
+  <title>PocketBench</title>
+
+  <!-- Iconos -->
+  <link rel="icon" type="image/png" href="icon-192.png" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
+
+  <!-- Manifest -->
+  <link rel="manifest" href="manifest.json" />
+
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: radial-gradient(circle at top left, #6366f1 0, #4f46e5 35%, #7c3aed 60%, #1e293b 100%);
+      min-height: 100vh;
+      color: #f9fafb;
+      overflow: hidden;
+    }
+
+    .container {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(15, 23, 42, 0.9);
+      border-radius: 20px;
+      padding: 32px 28px 28px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+      text-align: center;
+      max-width: 520px;
+      width: calc(100% - 24px);
+      border: 1px solid rgba(148, 163, 184, 0.5);
+    }
+
+    .logo {
+      width: 96px;
+      height: 96px;
+      margin: 0 auto 20px;
+      background: #FFE600;
+      border-radius: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 10px 30px rgba(255, 230, 0, 0.45);
+      overflow: hidden;
+    }
+
+    .logo img {
+      width: 72px;
+      height: 72px;
+      object-fit: contain;
+    }
+
+    h1 {
+      color: #e5e7eb;
+      margin-bottom: 8px;
+      font-size: 26px;
+      letter-spacing: 0.2px;
+    }
+
+    p {
+      color: #cbd5f5;
+      margin-bottom: 18px;
+      line-height: 1.6;
+      font-size: 14px;
+    }
+
+    .loading {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .spinner {
+      border: 4px solid rgba(148, 163, 184, 0.3);
+      border-top: 4px solid #FFE600;
+      border-radius: 50%;
+      width: 48px;
+      height: 48px;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .error {
+      display: none;
+      background: rgba(254, 242, 242, 0.95);
+      border: 2px solid #fecaca;
+      border-radius: 10px;
+      padding: 16px;
+      margin-top: 18px;
+      color: #b91c1c;
+      font-size: 14px;
+      text-align: left;
+    }
+
+    .error.show { display: block; }
+
+    .install-prompt {
+      display: none;
+      background: rgba(219, 234, 254, 0.95);
+      border: 2px solid #2196F3;
+      border-radius: 10px;
+      padding: 16px;
+      margin-top: 18px;
+      color: #111827;
+      font-size: 14px;
+      text-align: left;
+    }
+
+    .install-prompt.show { display: block; }
+
+    .btn {
+      background: #667eea;
+      color: white;
+      border: none;
+      padding: 12px 18px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      margin-top: 10px;
+      transition: all 0.3s;
+    }
+
+    .btn:hover {
+      background: #5568d3;
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+    }
+
+    .version {
+      margin-top: 18px;
+      color: #9ca3af;
+      font-size: 12px;
+    }
+
+    #app-frame {
+      display: none;
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%;
+      height: 100%;
+      border: none;
+      background: #fff;
+    }
+
+    #app-frame.loaded { display: block; }
+  </style>
+</head>
+<body>
+  <div class="container" id="splash">
+    <div class="logo">
+      <!-- Usa el mismo logo de MyBench si quieres -->
+      <img src="https://i.imgur.com/aNxDcLC.png" alt="PocketBench" />
+    </div>
+
+    <h1>PocketBench</h1>
+    <p>Tu bancada actual y tu historial, en el bolsillo.</p>
+
+    <div class="loading" id="loading">
+      <div class="spinner"></div>
+      <p>Cargando aplicación...</p>
+    </div>
+
+    <div class="error" id="error">
+      <strong>⚠️ Error de conexión</strong>
+      <p id="error-message" style="margin-top:6px;"></p>
+      <button class="btn" onclick="location.reload()">Reintentar</button>
+    </div>
+
+    <div class="install-prompt" id="install-prompt">
+      <strong>📱 Instalar aplicación</strong>
+      <p>Instala PocketBench en tu dispositivo para acceso rápido.</p>
+      <button class="btn" id="install-button">Instalar</button>
+    </div>
+
+    <div class="version">v1.0.0</div>
+  </div>
+
+  <iframe id="app-frame" src="" title="PocketBench App"></iframe>
+
+  <script>
+    // URL de PocketBench (/exec)
+    const APP_URL = 'https://script.google.com/a/macros/mercadolibre.com/s/AKfycbzGPjHEJBYHrw70nYiXUJKiaT84HXvoZHmpFRsMzsQvOiEK35ZZ0Nxq-YWLDu5QhkNk/exec';
+
+    // Registrar Service Worker (del dominio GitHub Pages)
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js')
+          .then(reg => console.log('Service Worker registrado:', reg))
+          .catch(err => console.error('Error al registrar Service Worker:', err));
+      });
+    }
+
+    // Cargar app en iframe
+    window.addEventListener('load', () => {
+      const iframe = document.getElementById('app-frame');
+      const splash = document.getElementById('splash');
+      const loading = document.getElementById('loading');
+      const errorDiv = document.getElementById('error');
+      const errorMessage = document.getElementById('error-message');
+
+      iframe.src = APP_URL;
+
+      const timeout = setTimeout(() => {
+        loading.style.display = 'none';
+        errorDiv.classList.add('show');
+        errorMessage.textContent =
+          'La aplicación está tardando mucho en cargar. Verifica tu conexión a internet o tu acceso a la organización.';
+      }, 12000);
+
+      iframe.addEventListener('load', () => {
+        clearTimeout(timeout);
+        setTimeout(() => {
+          splash.style.display = 'none';
+          iframe.classList.add('loaded');
+        }, 400);
+      });
+
+      iframe.addEventListener('error', () => {
+        clearTimeout(timeout);
+        loading.style.display = 'none';
+        errorDiv.classList.add('show');
+        errorMessage.textContent =
+          'No se pudo cargar PocketBench. Verifica que tengas acceso a la organización.';
+      });
+    });
+
+    // Install prompt
+    let deferredPrompt;
+
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+
+      const installPrompt = document.getElementById('install-prompt');
+      const installButton = document.getElementById('install-button');
+
+      setTimeout(() => {
+        installPrompt.classList.add('show');
+      }, 2500);
+
+      installButton.addEventListener('click', async () => {
+        installPrompt.classList.remove('show');
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        console.log(`Install prompt: ${outcome}`);
+        deferredPrompt = null;
+      });
+    });
+
+    window.addEventListener('appinstalled', () => {
+      console.log('PWA instalada exitosamente');
+      deferredPrompt = null;
+    });
+  </script>
+</body>
+</html>
