@@ -36,8 +36,9 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
 
-  // No interceptar Apps Script / Google domains (siempre red)
   const url = event.request.url;
+
+  // No interceptar Apps Script/Google domains: siempre red
   if (url.includes('script.google.com') || url.includes('googleusercontent.com')) {
     return event.respondWith(fetch(event.request));
   }
