@@ -98,6 +98,7 @@
       100% { transform: rotate(360deg); }
     }
 
+    /* Panel base */
     .panel {
       display: none;
       margin-top: 14px;
@@ -108,22 +109,35 @@
     }
     .panel.show { display: block; }
 
+    /* FIX: texto siempre legible dentro de paneles */
+    .panel strong { display: block; font-weight: 900; }
+    .panel p {
+      margin: 6px 0 0;
+      font-size: 13px;
+      line-height: 1.45;
+      /* IMPORTANT: sobrescribe el p global para legibilidad */
+      color: inherit !important;
+    }
+
+    /* Info (azul) */
     .panel.info {
       background: rgba(219, 234, 254, 0.95);
       border: 2px solid #2196F3;
-      color: #111827;
+      color: #0f172a; /* oscuro, legible */
     }
 
+    /* Warn (naranja) */
     .panel.warn {
       background: rgba(255, 237, 213, 0.95);
       border: 2px solid #fb923c;
-      color: #7c2d12;
+      color: #7c2d12; /* marrón oscuro */
     }
 
+    /* Error (rojo) */
     .panel.error {
       background: rgba(254, 242, 242, 0.95);
       border: 2px solid #fecaca;
-      color: #b91c1c;
+      color: #7f1d1d; /* rojo oscuro */
     }
 
     .btn {
@@ -185,32 +199,29 @@
     <button class="btn" id="btn-open">Abrir PocketBench</button>
     <button class="btn btn-secondary" id="btn-copy" style="display:none;">Copiar link</button>
 
-    <!-- iOS / Safari instalación -->
     <div class="panel info" id="panel-ios-install">
       <strong>📱 iPhone: instalar</strong>
-      <p style="margin-top:6px;">
+      <p>
         Para instalar: abre esta página en <strong>Safari</strong> → Compartir →
         <strong>Agregar a pantalla de inicio</strong>.
       </p>
     </div>
 
-    <!-- iOS + Chrome aviso -->
     <div class="panel warn" id="panel-ios-chrome">
       <strong>⚠️ Estás usando Chrome en iPhone</strong>
-      <p style="margin-top:6px;">
+      <p>
         En iPhone, la instalación y el acceso funcionan mejor desde <strong>Safari</strong>.
         Toca <strong>Copiar link</strong>, pégalo en Safari y luego instala desde allí.
       </p>
     </div>
 
-    <!-- Error general -->
     <div class="panel error" id="panel-error">
       <strong>❌ Error</strong>
-      <p id="error-message" style="margin-top:6px;"></p>
+      <p id="error-message"></p>
       <button class="btn btn-secondary" onclick="location.reload()">Reintentar</button>
     </div>
 
-    <div class="version">v1.0.3</div>
+    <div class="version">v1.0.4</div>
   </div>
 
   <iframe id="app-frame" src="" title="PocketBench App"></iframe>
@@ -224,15 +235,7 @@
     }
 
     function isChromeOniOS() {
-      // Chrome iOS
       return /CriOS/.test(navigator.userAgent);
-    }
-
-    function isSafariOniOS() {
-      // Safari iOS: tiene "Safari" pero NO CriOS/FxiOS/EdgiOS
-      const ua = navigator.userAgent;
-      const isSafari = /Safari/.test(ua) && !/CriOS|FxiOS|EdgiOS/.test(ua);
-      return isSafari && isIOS();
     }
 
     async function copyToClipboard(text) {
@@ -243,7 +246,6 @@
         }
       } catch (e) {}
       try {
-        // fallback
         const ta = document.createElement('textarea');
         ta.value = text;
         ta.style.position = 'fixed';
@@ -259,7 +261,6 @@
       }
     }
 
-    // SW del shell (GitHub Pages)
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('sw.js')
@@ -279,17 +280,14 @@
       const btnOpen = document.getElementById('btn-open');
       const btnCopy = document.getElementById('btn-copy');
 
-      // CLICK: abre Apps Script (evita problemas iOS con iframes/autoredirects)
       btnOpen.addEventListener('click', () => {
         window.location.href = APP_URL;
       });
 
-      // Config inicial
       if (isIOS()) {
         loadingText.textContent = 'En iPhone, abre PocketBench con el botón.';
         panelIOSInstall.classList.add('show');
 
-        // Si es Chrome iOS, mostramos aviso + botón copiar link
         if (isChromeOniOS()) {
           panelIOSChrome.classList.add('show');
           btnCopy.style.display = 'block';
@@ -301,16 +299,16 @@
               setTimeout(() => (btnCopy.textContent = 'Copiar link'), 1800);
             } else {
               panelError.classList.add('show');
-              errorMessage.textContent = 'No se pudo copiar el link. Cópialo manualmente: ' + SHELL_URL;
+              errorMessage.textContent =
+                'No se pudo copiar el link. Cópialo manualmente: ' + SHELL_URL;
             }
           });
         }
 
-        // NO iframe en iOS
-        return;
+        return; // NO iframe en iOS
       }
 
-      // Android/otros: iframe como en tu PWA exitosa
+      // Android/otros: iframe
       loadingText.textContent = 'Cargando aplicación...';
 
       const iframe = document.getElementById('app-frame');
