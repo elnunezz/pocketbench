@@ -1,4 +1,4 @@
-const CACHE_NAME = 'pocketbench-v1.0.2';
+const CACHE_NAME = 'pocketbench-v1.0.5';
 const BASE_URL = 'https://elnunezz.github.io/pocketbench/';
 
 const urlsToCache = [
