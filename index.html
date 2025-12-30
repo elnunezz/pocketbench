@@ -71,37 +71,14 @@
 
     p {
       color: #cbd5f5;
-      margin-bottom: 14px;
+      margin-bottom: 12px;
       line-height: 1.5;
       font-size: 14px;
     }
 
-    .loading {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 12px;
-      margin-top: 6px;
-    }
-
-    .spinner {
-      border: 4px solid rgba(148, 163, 184, 0.3);
-      border-top: 4px solid #FFE600;
-      border-radius: 50%;
-      width: 46px;
-      height: 46px;
-      animation: spin 1s linear infinite;
-    }
-
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-
-    /* Panel base */
     .panel {
       display: none;
-      margin-top: 14px;
+      margin-top: 12px;
       border-radius: 12px;
       padding: 14px;
       font-size: 14px;
@@ -109,35 +86,30 @@
     }
     .panel.show { display: block; }
 
-    /* FIX: texto siempre legible dentro de paneles */
     .panel strong { display: block; font-weight: 900; }
     .panel p {
       margin: 6px 0 0;
       font-size: 13px;
       line-height: 1.45;
-      /* IMPORTANT: sobrescribe el p global para legibilidad */
       color: inherit !important;
     }
 
-    /* Info (azul) */
     .panel.info {
       background: rgba(219, 234, 254, 0.95);
       border: 2px solid #2196F3;
-      color: #0f172a; /* oscuro, legible */
+      color: #0f172a;
     }
 
-    /* Warn (naranja) */
     .panel.warn {
       background: rgba(255, 237, 213, 0.95);
       border: 2px solid #fb923c;
-      color: #7c2d12; /* marrón oscuro */
+      color: #7c2d12;
     }
 
-    /* Error (rojo) */
     .panel.error {
       background: rgba(254, 242, 242, 0.95);
       border: 2px solid #fecaca;
-      color: #7f1d1d; /* rojo oscuro */
+      color: #7f1d1d;
     }
 
     .btn {
@@ -169,17 +141,6 @@
       color: #9ca3af;
       font-size: 12px;
     }
-
-    #app-frame {
-      display: none;
-      position: fixed;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      border: none;
-      background: #fff;
-    }
-    #app-frame.loaded { display: block; }
   </style>
 </head>
 <body>
@@ -189,14 +150,10 @@
     </div>
 
     <h1>PocketBench</h1>
-    <p>Tu bancada actual y tu historial.</p>
-
-    <div class="loading" id="loading">
-      <div class="spinner"></div>
-      <p id="loading-text">Preparando...</p>
-    </div>
+    <p>Acceso rápido a tu bancada actual e historial.</p>
 
     <button class="btn" id="btn-open">Abrir PocketBench</button>
+    <button class="btn btn-secondary" id="btn-install" style="display:none;">Instalar</button>
     <button class="btn btn-secondary" id="btn-copy" style="display:none;">Copiar link</button>
 
     <div class="panel info" id="panel-ios-install">
@@ -210,8 +167,16 @@
     <div class="panel warn" id="panel-ios-chrome">
       <strong>⚠️ Estás usando Chrome en iPhone</strong>
       <p>
-        En iPhone, la instalación y el acceso funcionan mejor desde <strong>Safari</strong>.
-        Toca <strong>Copiar link</strong>, pégalo en Safari y luego instala desde allí.
+        En iPhone, la instalación funciona desde <strong>Safari</strong>.
+        Toca <strong>Copiar link</strong>, pégalo en Safari y luego instala.
+      </p>
+    </div>
+
+    <div class="panel info" id="panel-android-install">
+      <strong>📲 Android: instalar</strong>
+      <p>
+        Puedes instalar PocketBench para acceso rápido.
+        Si no ves el botón “Instalar”, usa el menú del navegador → <strong>Instalar app</strong>.
       </p>
     </div>
 
@@ -221,10 +186,8 @@
       <button class="btn btn-secondary" onclick="location.reload()">Reintentar</button>
     </div>
 
-    <div class="version">v1.0.4</div>
+    <div class="version">v1.0.5</div>
   </div>
-
-  <iframe id="app-frame" src="" title="PocketBench App"></iframe>
 
   <script>
     const APP_URL = 'https://script.google.com/a/macros/mercadolibre.com/s/AKfycbzGPjHEJBYHrw70nYiXUJKiaT84HXvoZHmpFRsMzsQvOiEK35ZZ0Nxq-YWLDu5QhkNk/exec';
@@ -233,7 +196,6 @@
     function isIOS() {
       return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
     }
-
     function isChromeOniOS() {
       return /CriOS/.test(navigator.userAgent);
     }
@@ -261,6 +223,7 @@
       }
     }
 
+    // SW del shell (cachea solo archivos estáticos del shell)
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('sw.js')
@@ -269,76 +232,59 @@
       });
     }
 
-    window.addEventListener('load', () => {
-      const loadingText = document.getElementById('loading-text');
+    // Abrir app (sin iframe)
+    document.getElementById('btn-open').addEventListener('click', () => {
+      window.location.href = APP_URL;
+    });
 
-      const panelIOSInstall = document.getElementById('panel-ios-install');
-      const panelIOSChrome = document.getElementById('panel-ios-chrome');
-      const panelError = document.getElementById('panel-error');
-      const errorMessage = document.getElementById('error-message');
+    // UI iOS (instalación via Safari)
+    const panelIOSInstall = document.getElementById('panel-ios-install');
+    const panelIOSChrome = document.getElementById('panel-ios-chrome');
+    const panelAndroidInstall = document.getElementById('panel-android-install');
+    const btnCopy = document.getElementById('btn-copy');
 
-      const btnOpen = document.getElementById('btn-open');
-      const btnCopy = document.getElementById('btn-copy');
+    if (isIOS()) {
+      panelIOSInstall.classList.add('show');
 
-      btnOpen.addEventListener('click', () => {
-        window.location.href = APP_URL;
-      });
-
-      if (isIOS()) {
-        loadingText.textContent = 'En iPhone, abre PocketBench con el botón.';
-        panelIOSInstall.classList.add('show');
-
-        if (isChromeOniOS()) {
-          panelIOSChrome.classList.add('show');
-          btnCopy.style.display = 'block';
-
-          btnCopy.addEventListener('click', async () => {
-            const ok = await copyToClipboard(SHELL_URL);
-            if (ok) {
-              btnCopy.textContent = 'Link copiado ✓';
-              setTimeout(() => (btnCopy.textContent = 'Copiar link'), 1800);
-            } else {
-              panelError.classList.add('show');
-              errorMessage.textContent =
-                'No se pudo copiar el link. Cópialo manualmente: ' + SHELL_URL;
-            }
-          });
-        }
-
-        return; // NO iframe en iOS
+      if (isChromeOniOS()) {
+        panelIOSChrome.classList.add('show');
+        btnCopy.style.display = 'block';
+        btnCopy.addEventListener('click', async () => {
+          const ok = await copyToClipboard(SHELL_URL);
+          if (ok) {
+            btnCopy.textContent = 'Link copiado ✓';
+            setTimeout(() => (btnCopy.textContent = 'Copiar link'), 1800);
+          }
+        });
       }
+    } else {
+      // Android/otros: hint instalación
+      panelAndroidInstall.classList.add('show');
+    }
 
-      // Android/otros: iframe
-      loadingText.textContent = 'Cargando aplicación...';
+    // Install prompt Android/Chrome
+    let deferredPrompt;
+    const btnInstall = document.getElementById('btn-install');
 
-      const iframe = document.getElementById('app-frame');
-      const splash = document.getElementById('splash');
-      const loading = document.getElementById('loading');
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      btnInstall.style.display = 'block';
 
-      iframe.src = APP_URL;
+      btnInstall.addEventListener('click', async () => {
+        if (!deferredPrompt) return;
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        console.log('Install outcome:', outcome);
+        deferredPrompt = null;
+        btnInstall.style.display = 'none';
+      }, { once: true });
+    });
 
-      const timeout = setTimeout(() => {
-        loading.style.display = 'none';
-        panelError.classList.add('show');
-        errorMessage.textContent =
-          'PocketBench está tardando mucho en cargar. Verifica tu conexión o tu acceso.';
-      }, 12000);
-
-      iframe.addEventListener('load', () => {
-        clearTimeout(timeout);
-        setTimeout(() => {
-          splash.style.display = 'none';
-          iframe.classList.add('loaded');
-        }, 350);
-      });
-
-      iframe.addEventListener('error', () => {
-        clearTimeout(timeout);
-        loading.style.display = 'none';
-        panelError.classList.add('show');
-        errorMessage.textContent =
-          'No se pudo cargar PocketBench. Verifica tu acceso a la organización.';
-      });
+    window.addEventListener('appinstalled', () => {
+      console.log('PWA instalada');
+      btnInstall.style.display = 'none';
+      deferredPrompt = null;
     });
   </script>
 </body>
