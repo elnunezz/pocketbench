@@ -7,18 +7,14 @@
   <meta name="theme-color" content="#FFE600" />
   <meta name="description" content="PocketBench - Tu bancada actual y tu historial" />
 
-  <!-- iOS PWA hints -->
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="PocketBench" />
 
   <title>PocketBench</title>
 
-  <!-- Iconos -->
   <link rel="icon" type="image/png" href="icon-192.png" />
   <link rel="apple-touch-icon" href="icon-192.png" />
-
-  <!-- Manifest -->
   <link rel="manifest" href="manifest.json" />
 
   <style>
@@ -85,6 +81,7 @@
       flex-direction: column;
       align-items: center;
       gap: 12px;
+      margin-top: 6px;
     }
 
     .spinner {
@@ -114,7 +111,7 @@
     }
     .error.show { display: block; }
 
-    .install-prompt {
+    .install-hint {
       display: none;
       background: rgba(219, 234, 254, 0.95);
       border: 2px solid #2196F3;
@@ -125,7 +122,7 @@
       font-size: 14px;
       text-align: left;
     }
-    .install-prompt.show { display: block; }
+    .install-hint.show { display: block; }
 
     .btn {
       background: #667eea;
@@ -136,7 +133,7 @@
       font-size: 14px;
       font-weight: 800;
       cursor: pointer;
-      margin-top: 8px;
+      margin-top: 10px;
       transition: all 0.2s;
       width: 100%;
     }
@@ -146,14 +143,27 @@
       filter: brightness(0.98);
     }
 
+    .btn-secondary {
+      background: rgba(148, 163, 184, 0.18);
+    }
+
     .version {
       margin-top: 14px;
       color: #9ca3af;
       font-size: 12px;
     }
 
-    /* iframe existe pero NO se usa en iOS (y si quieres, tampoco en ningún lado) */
-    #app-frame { display: none; }
+    #app-frame {
+      display: none;
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      border: none;
+      background: #fff;
+    }
+
+    #app-frame.loaded { display: block; }
   </style>
 </head>
 <body>
@@ -167,25 +177,26 @@
 
     <div class="loading" id="loading">
       <div class="spinner"></div>
-      <p id="loading-text">Abriendo aplicación...</p>
+      <p id="loading-text">Preparando...</p>
+    </div>
+
+    <button class="btn" id="btn-open">Abrir PocketBench</button>
+
+    <div class="install-hint" id="install-hint">
+      <strong>📱 iPhone: instalar</strong>
+      <p style="margin-top:6px;">
+        Debes abrir esta página en <strong>Safari</strong> y luego:
+        <br/>Compartir → <strong>Agregar a pantalla de inicio</strong>.
+      </p>
     </div>
 
     <div class="error" id="error">
       <strong>⚠️ Error</strong>
       <p id="error-message" style="margin-top:6px;"></p>
-      <button class="btn" onclick="location.reload()">Reintentar</button>
+      <button class="btn btn-secondary" onclick="location.reload()">Reintentar</button>
     </div>
 
-    <!-- iOS no dispara beforeinstallprompt: mostramos ayuda -->
-    <div class="install-prompt" id="install-prompt">
-      <strong>📱 Instalar en iPhone</strong>
-      <p>
-        En iPhone debes usar <strong>Safari</strong> → botón <strong>Compartir</strong> →
-        <strong>Agregar a pantalla de inicio</strong>.
-      </p>
-    </div>
-
-    <div class="version">v1.0.1</div>
+    <div class="version">v1.0.2</div>
   </div>
 
   <iframe id="app-frame" src="" title="PocketBench App"></iframe>
@@ -197,7 +208,7 @@
       return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
     }
 
-    // Registrar Service Worker (solo afecta al shell en GitHub Pages)
+    // SW (solo cachea el shell)
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('sw.js')
@@ -206,64 +217,63 @@
       });
     }
 
+    // Botón abrir (CLICK real, iOS permite navegación)
+    const btnOpen = document.getElementById('btn-open');
+    btnOpen.addEventListener('click', () => {
+      // En iOS es más estable abrir en la misma vista
+      window.location.href = APP_URL;
+    });
+
     window.addEventListener('load', () => {
+      const loadingText = document.getElementById('loading-text');
+      const installHint = document.getElementById('install-hint');
+
+      if (isIOS()) {
+        loadingText.textContent = 'En iPhone presiona “Abrir PocketBench”.';
+        installHint.classList.add('show');
+        return; // NO iframe en iOS
+      }
+
+      // Android/otros: iframe
+      loadingText.textContent = 'Cargando aplicación...';
+      const iframe = document.getElementById('app-frame');
+      const splash = document.getElementById('splash');
       const loading = document.getElementById('loading');
       const errorDiv = document.getElementById('error');
       const errorMessage = document.getElementById('error-message');
-      const installPrompt = document.getElementById('install-prompt');
 
-      // En iOS: mostrar instrucciones de instalación
-      if (isIOS()) {
-        installPrompt.classList.add('show');
-      }
+      iframe.src = APP_URL;
 
-      // REDIRECT (sin iframe): esto evita el blanco en iOS
-      // y además permite completar OAuth/SSO de Google correctamente.
-      try {
-        setTimeout(() => {
-          window.location.href = APP_URL;
-        }, 400);
-      } catch (e) {
+      const timeout = setTimeout(() => {
         loading.style.display = 'none';
         errorDiv.classList.add('show');
-        errorMessage.textContent = 'No se pudo abrir la aplicación. Intenta nuevamente.';
-      }
+        errorMessage.textContent =
+          'PocketBench está tardando mucho en cargar. Verifica tu conexión o tu acceso.';
+      }, 12000);
+
+      iframe.addEventListener('load', () => {
+        clearTimeout(timeout);
+        setTimeout(() => {
+          splash.style.display = 'none';
+          iframe.classList.add('loaded');
+        }, 350);
+      });
+
+      iframe.addEventListener('error', () => {
+        clearTimeout(timeout);
+        loading.style.display = 'none';
+        errorDiv.classList.add('show');
+        errorMessage.textContent =
+          'No se pudo cargar PocketBench. Verifica tu acceso a la organización.';
+      });
     });
 
-    // Install prompt para Android/Chrome (iOS no lo soporta)
+    // Android install prompt
     let deferredPrompt;
-
     window.addEventListener('beforeinstallprompt', (e) => {
       e.preventDefault();
       deferredPrompt = e;
-
-      const installPrompt = document.getElementById('install-prompt');
-      const loadingText = document.getElementById('loading-text');
-
-      // En Android, el redirect te sacaría del shell inmediatamente.
-      // Si quieres mantener el flujo Android con iframe, no uses esta versión.
-      // Si igual quieres permitir “instalar” el shell, avisamos:
-      if (loadingText) {
-        loadingText.textContent = 'Puedes instalar PocketBench desde el menú del navegador.';
-      }
-
-      // Mostramos bloque de instalación y lo adaptamos (Android)
-      installPrompt.classList.add('show');
-      installPrompt.innerHTML = `
-        <strong>📱 Instalar aplicación</strong>
-        <p>Instala PocketBench en tu dispositivo para acceso rápido.</p>
-        <button class="btn" id="install-button">Instalar</button>
-      `;
-
-      const btn = document.getElementById('install-button');
-      if (btn) {
-        btn.addEventListener('click', async () => {
-          deferredPrompt.prompt();
-          const { outcome } = await deferredPrompt.userChoice;
-          console.log(\`Install prompt: \${outcome}\`);
-          deferredPrompt = null;
-        });
-      }
+      // Puedes agregar aquí un prompt UI similar al que ya tenías, si quieres.
     });
   </script>
 </body>
